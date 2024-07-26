@@ -75,6 +75,6 @@ def consolidate_sheets(input_file, output_file):
     print(f"Archivo consolidado guardado como {output_file}")
 
 # Uso del script
-input_file = 'Rechazos_Gestor_Dashboard.xlsx'  # Reemplaza con la ruta de tu archivo .xlsx
+input_file = 'input.xlsx'  # Reemplaza con la ruta de tu archivo .xlsx
 output_file = 'Resultado.xlsx'
 consolidate_sheets(input_file, output_file)
