@@ -3,7 +3,11 @@ from datetime import datetime
 
 def parse_date(date_string):
     """Convierte una cadena de fecha en formato dd.mm.yy a un objeto datetime."""
-    return datetime.strptime(date_string, '%d.%m.%y')
+    try:
+        return datetime.strptime(date_string, '%d.%m.%y')
+    except ValueError as e:
+        print(f"Error al convertir la fecha: {date_string} - {e}")
+        return None
 
 def consolidate_sheets(input_file, output_file):
     """Consolida datos de múltiples hojas de un archivo Excel en un DataFrame y lo exporta como un nuevo archivo Excel."""
@@ -11,11 +15,20 @@ def consolidate_sheets(input_file, output_file):
     # Leer el archivo de Excel y obtener nombres de las hojas
     xls = pd.ExcelFile(input_file)
     
-    # Filtrar las hojas que comienzan con "R_"
-    sheet_names = [sheet for sheet in xls.sheet_names if sheet.startswith("R_")]
-    
+    # Filtrar las hojas que comienzan con "R_" y convertir fechas
+    sheet_names = []
+    for sheet in xls.sheet_names:
+        if sheet.startswith("R_"):
+            date_str = sheet.replace("R_", "")
+            date_obj = parse_date(date_str)
+            if date_obj:
+                sheet_names.append((sheet, date_obj))
+            else:
+                print(f"Nombre de hoja ignorado por formato de fecha incorrecto: {sheet}")
+
     # Ordenar hojas por fecha (más reciente a más antigua)
-    sheet_names.sort(key=lambda name: parse_date(name.replace("R_", "")), reverse=True)
+    sheet_names.sort(key=lambda x: x[1], reverse=True)
+    sheet_names = [sheet[0] for sheet in sheet_names]
     
     # Diccionario para almacenar los datos consolidados
     data = {}
@@ -62,6 +75,6 @@ def consolidate_sheets(input_file, output_file):
     print(f"Archivo consolidado guardado como {output_file}")
 
 # Uso del script
-input_file = 'input_file.xls'  # Reemplaza con la ruta de tu archivo .xls
-output_file = 'Resultado.xls'
+input_file = 'Rechazos_Gestor_Dashboard.xlsx'  # Reemplaza con la ruta de tu archivo .xlsx
+output_file = 'Resultado.xlsx'
 consolidate_sheets(input_file, output_file)
