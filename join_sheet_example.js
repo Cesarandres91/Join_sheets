@@ -14,14 +14,21 @@ function consolidateSheets() {
     var data = {};
     var sheetNames = [];
     var numberOfColumnsToConsolidate = 9; // Cambia este valor si necesitas consolidar más o menos columnas
-    var useConcatenatedKey = 0; // Cambia a 1 para usar la clave concatenada
+    var useConcatenatedKey = 1; // Cambia a 1 para usar la clave concatenada, o 0 para omitir
+    var specificColumnToAdd = -1; // -1 para indicar que se debe usar la última columna
 
     // Función opcional para generar la clave concatenada
     function generateKey(row) {
-      var columnsToConcatenate = [0, 2, 4, 6]; // Cambia estos índices para concatenar diferentes columnas
+      var columnsToConcatenate = [0, 2, 4, 8]; // Cambia estos índices para concatenar diferentes columnas
       return columnsToConcatenate.map(function(index) {
         return row[index];
       }).join("_");
+    }
+
+    // Función para convertir fecha en formato dd.mm.yy a objeto Date
+    function parseDate(dateString) {
+      var parts = dateString.split(".");
+      return new Date(parts[2], parts[1] - 1, parts[0]);
     }
 
     // Recopilar datos de hojas que comienzan con "R_"
@@ -30,9 +37,9 @@ function consolidateSheets() {
       if (sheetName.startsWith("R_")) {
         sheetNames.push(sheetName);
         var lastRow = sheet.getLastRow();
-        var values = sheet.getRange(1, 1, lastRow, numberOfColumnsToConsolidate).getValues();
+        var values = sheet.getRange(2, 1, lastRow - 1, numberOfColumnsToConsolidate).getValues(); // Saltar la primera fila (encabezados)
         values.forEach(function(row) {
-          var key = useConcatenatedKey ? generateKey(row) : row[0];
+          var key = useConcatenatedKey ? generateKey(row) : row[0].toString().trim(); // Asegurarse de que la clave no tenga espacios en blanco
           if (!data[key]) {
             data[key] = useConcatenatedKey ? [key].concat(row.slice()) : row.slice();
           }
@@ -40,8 +47,12 @@ function consolidateSheets() {
       }
     });
 
-    // Ordenar nombres de hojas en orden Z-A
-    sheetNames.sort().reverse();
+    // Ordenar nombres de hojas en orden cronológico (más reciente a más antigua)
+    sheetNames.sort(function(a, b) {
+      var dateA = parseDate(a.replace("R_", ""));
+      var dateB = parseDate(b.replace("R_", ""));
+      return dateB - dateA; // Ordenar de más reciente a más antigua
+    });
 
     // Crear encabezados en la hoja Consolidado
     var headers = sheets.find(sheet => sheet.getName().startsWith("R_")).getRange(1, 1, 1, numberOfColumnsToConsolidate).getValues()[0];
@@ -63,12 +74,14 @@ function consolidateSheets() {
           Logger.log("Hoja no encontrada: " + sheetName);
           return;
         }
-        var sheetValues = sheet.getRange(1, 1, sheet.getLastRow(), sheet.getLastColumn()).getValues();
+        var sheetValues = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues(); // Saltar la primera fila (encabezados)
         var found = false;
         for (var i = 0; i < sheetValues.length; i++) {
-          var sheetKey = useConcatenatedKey ? generateKey(sheetValues[i]) : sheetValues[i][0];
+          var sheetKey = useConcatenatedKey ? generateKey(sheetValues[i]) : sheetValues[i][0].toString().trim(); // Asegurarse de que la clave no tenga espacios en blanco
+          Logger.log("Comparando claves: " + key + " con " + sheetKey); // Depuración de claves
           if (sheetKey === key) {
-            row.push(sheetValues[i][sheetValues[i].length - 1]);
+            var valueToAdd = specificColumnToAdd === -1 ? sheetValues[i][sheetValues[i].length - 1] : sheetValues[i][specificColumnToAdd];
+            row.push(valueToAdd); // Usar la columna específica o la última columna
             found = true;
             break;
           }
@@ -102,3 +115,5 @@ function consolidateSheets() {
 
 // Para activar la función de clave concatenada, cambia el valor de useConcatenatedKey a 1
 // Para cambiar las columnas que se concatenan, ajusta los índices en el array columnsToConcatenate en la función generateKey
+// Para cambiar la columna específica a agregar, ajusta el valor de specificColumnToAdd
+// Usar -1 para indicar que se debe usar la última columna
